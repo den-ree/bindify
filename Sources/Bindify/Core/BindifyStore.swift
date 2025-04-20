@@ -9,9 +9,10 @@ import Combine
 
 /// An actor that manages a global state store with thread-safe access
 ///
-/// `BindifyStateStore` provides a centralized, thread-safe way to manage application state
-/// and handle event communication between different parts of the application.
-public actor BindifyStore<State: BindifyGlobalState> {
+/// `BindifyStore` serves as the single source of truth in the unidirectional data flow architecture.
+/// It manages the global application state and notifies subscribers of any state changes.
+/// The actor model ensures thread safety for all state operations.
+public actor BindifyStore<State: BindifyStoreState> {
   /// The current state of the store
   private(set) var state: State
 
@@ -28,6 +29,10 @@ public actor BindifyStore<State: BindifyGlobalState> {
 /// Supporting updates and subscription methods
 extension BindifyStore {
   /// Subscribes to state updates from the store
+  /// 
+  /// This is used to establish a reactive connection between the store and view models.
+  /// In the unidirectional data flow pattern, this enables automatic propagation of state changes.
+  ///
   /// - Parameter updates: A closure that receives the old and new state
   /// - Returns: A cancellable subscription object
   func subscribe(updates: @escaping ((old: State?, new: State)) -> Void) -> AnyCancellable {
@@ -41,6 +46,10 @@ extension BindifyStore {
   }
 
   /// Updates the store's state using the provided mutation block
+  /// 
+  /// This is the primary method for changing state in the unidirectional data flow pattern.
+  /// All state changes should flow through this method to ensure proper notification of subscribers.
+  ///
   /// - Parameter block: A closure that modifies the current state
   func update(state block: (inout State) -> Void) {
     let oldState = state
