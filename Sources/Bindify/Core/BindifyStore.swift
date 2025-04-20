@@ -13,7 +13,7 @@ import Combine
 /// and handle event communication between different parts of the application.
 public actor BindifyStore<State: BindifyGlobalState> {
   /// The current state of the store
-  private var state: State
+  private(set) var state: State
 
   /// Subject that broadcasts state changes to subscribers
   private let changesSubject = PassthroughSubject<(old: State?, new: State), Never>()

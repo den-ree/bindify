@@ -44,23 +44,4 @@ public extension BindifyView where ViewModel: BindifyStatableViewModel {
   var state: ViewModel.State {
     viewModel.state
   }
-
-  /// Refreshes the view state by deriving it from the store state
-  /// - Parameter trigger: The event that triggered the refresh
-  @MainActor
-  func refreshState(trigger: BindifyStateChange<ViewModel.State>.Trigger = .localUpdate) {
-    let oldState = state
-    let newState = viewModel.scopeState()
-    
-    let change = BindifyStateChange(trigger: trigger, oldState: oldState, newState: newState)
-    
-    guard change.hasChanged || change.isInitial else { return }
-    
-    viewModel.onStateWillChange(change)
-    viewModel.state = newState
-    
-    Task {
-      await viewModel.onStateDidChange(change)
-    }
-  }
 }

@@ -64,24 +64,6 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyLoca
     updateState(block, trigger: .localUpdate)
   }
 
-  @MainActor func updateState(_ block: @escaping (inout ViewState) -> Void, trigger: BindifyStateChange<ViewState>.Trigger) {
-    let oldState = state
-    var newState = state
-    block(&newState)
-
-    let change = BindifyStateChange(trigger: trigger, oldState: oldState, newState: newState)
-
-    guard change.hasChanged || change.isInitial else { return }
-
-    onStateWillChange(change)
-
-    state = change.newState
-
-    Task {
-      await onStateDidChange(change)
-    }
-  }
-
   /// Updates the global store's state using a mutation block
   ///
   /// - Parameter block: A closure that modifies the store's state
@@ -101,10 +83,40 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyLoca
   @MainActor
   open func onStateDidChange(_ change: BindifyStateChange<ViewState>) async {}
 
+  /// Refreshes the view state by deriving it from the store state
+  /// - Parameter trigger: The event that triggered the refresh
+  func refreshState() async {
+    let currentStoreState = await context.store.state
+    let newState = self.scopeStoreOnChange(currentStoreState)
+
+    await self.updateState({ $0 = newState }, trigger: .localUpdate)
+  }
+
   /// Subscribes to a cancellable and stores it for lifecycle management
   ///
   /// - Parameter cancelable: The cancellable to store
   public func subscribeOn(_ cancelable: AnyCancellable) {
     cancelable.store(in: &cancellables)
+  }
+}
+
+private extension BindifyViewModel {
+
+  @MainActor func updateState(_ block: @escaping (inout ViewState) -> Void, trigger: BindifyStateChange<ViewState>.Trigger) {
+    let oldState = state
+    var newState = state
+    block(&newState)
+
+    let change = BindifyStateChange(trigger: trigger, oldState: oldState, newState: newState)
+
+    guard change.hasChanged || change.isInitial else { return }
+
+    onStateWillChange(change)
+
+    state = change.newState
+
+    Task {
+      await onStateDidChange(change)
+    }
   }
 }
