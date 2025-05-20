@@ -50,7 +50,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyLoca
     Task {
       await context.store.subscribe { [weak self] old, new in
         guard let self = self else { return }
-        let newState = self.scopeStoreOnChange(new)
+        let newState = self.scopeStateOnChange(new)
 
         Task {
           await self.updateState({ $0 = newState }, trigger: old == nil ? .storeConnection : .storeUpdate)
@@ -64,13 +64,6 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyLoca
     cancellables.removeAll()
   }
 
-  /// Updates the view state directly (consider using updateStore instead for unidirectional flow)
-  /// - Parameter block: A closure that modifies the current view state
-  @available(*, deprecated, message: "Use updateStore() to modify store state and let refreshState() derive the new view state")
-  @MainActor public func updateState(_ block: @escaping (inout ViewState) -> Void) {
-    updateState(block, trigger: .localUpdate)
-  }
-
   /// Updates the global store's state using a mutation block
   /// 
   /// This is the preferred way to make state changes in the unidirectional data flow pattern.
@@ -79,8 +72,8 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyLoca
   /// - Parameter block: A closure that modifies the store's state
   public func updateStore(_ block: @escaping (inout StoreContext.StoreState) -> Void) {
     Task {
-      await context.store.update(state: block)
       // Note: Store updates will automatically trigger refreshState through the subscription
+      await context.store.update(state: block)
     }
   }
 
@@ -91,7 +84,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyLoca
   ///
   /// - Parameter storeState: The current store state
   /// - Returns: A new view state derived from the store state
-  open func scopeStoreOnChange(_ storeState: StoreContext.StoreState) -> ViewState {
+  open func scopeStateOnChange(_ storeState: StoreContext.StoreState) -> ViewState {
     fatalError(#function + " must be overridden")
   }
 
@@ -115,9 +108,9 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyLoca
   @MainActor
   public func refreshState() async {
     let currentStoreState = await context.store.state
-    let newState = self.scopeStoreOnChange(currentStoreState)
+    let newState = self.scopeStateOnChange(currentStoreState)
 
-    await self.updateState({ $0 = newState }, trigger: .localUpdate)
+    await self.updateState({ $0 = newState }, trigger: .refreshUpdate)
   }
 
   /// Subscribes to a cancellable and stores it for lifecycle management
@@ -138,7 +131,7 @@ private extension BindifyViewModel {
   /// - Parameters:
   ///   - block: A closure that modifies the view state
   ///   - trigger: The source that triggered this state update
-  @MainActor func updateState(_ block: @escaping (inout ViewState) -> Void, trigger: BindifyStateChange<ViewState>.Trigger) {
+  @MainActor func updateState(_ block: @escaping (inout ViewState) -> Void, trigger: BindifyStateChange<ViewState>.Trigger) async {
     let oldState = state
     var newState = state
     block(&newState)

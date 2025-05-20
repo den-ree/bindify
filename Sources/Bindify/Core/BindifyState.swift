@@ -34,8 +34,8 @@ public struct BindifyStateChange<State: BindifyState>: Equatable, Sendable {
     case storeConnection
     /// An update from the store propagated to the view
     case storeUpdate
-    /// A local update within the view model
-    case localUpdate
+    /// A forced refresh update within the view model
+    case refreshUpdate
   }
 
   /// The event that triggered this state change
