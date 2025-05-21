@@ -2,13 +2,21 @@ import Foundation
 import Bindify
 import SwiftUI
 
-final class DiaryEntryViewModel: BindifyViewModel<DiaryContext, DiaryEntryViewModel.State>, BindifyStatableViewModel {
+final class DiaryEntryViewModel: BindifyViewModel<DiaryContext, DiaryEntryViewModel.State, DiaryEntryViewModel.Action> {
+  enum Action: Equatable {
+    case updateTitle(String)
+    case updateContent(String)
+    case startEditing
+    case finishEditing(save: Bool)
+    case markAsSaved
+  }
 
   enum SavingStatus: Equatable {
     case no
     case saving
     case saved
   }
+
   /// State for the add diary entry screen
   struct State: BindifyViewState {
     var title: String = ""
@@ -16,6 +24,7 @@ final class DiaryEntryViewModel: BindifyViewModel<DiaryContext, DiaryEntryViewMo
     var savingStatus: SavingStatus = .no
     var isEditing: Bool = false
     var entryTitle: String = ""
+    var shouldDismiss: Bool = false
 
     var isSavingDisabled: Bool {
       title.isEmpty || savingStatus == .saving
@@ -35,91 +44,104 @@ final class DiaryEntryViewModel: BindifyViewModel<DiaryContext, DiaryEntryViewMo
   }
 
   /// Transforms the store state into the view state
-  /// - Parameter storeState: Current store state
-  /// - Returns: New view state
-  override func scopeStateOnStoreChange(_ storeState: DiaryStoreState) -> State {
-    var nextState = viewState
+  /// - Parameters:
+  ///   - storeState: Current store state
+  ///   - newState: The view state to be modified
+  override func scopeStateOnStoreChange(
+    _ storeState: DiaryStoreState,
+    _ newState: inout State
+  ) {
+    if newState.savingStatus == .saving { return }
 
     switch storeState.entrySelectionMode {
     case .addingNew:
-      nextState.entryTitle = "New Entry"
+      newState.entryTitle = "New Entry"
+      newState.shouldDismiss = false
     case let .selecting(entry):
-      nextState.title = entry.title
-      nextState.content = entry.content
-      nextState.entryTitle = entry.title
+      newState.title = entry.title
+      newState.content = entry.content
+      newState.entryTitle = entry.title
+      newState.shouldDismiss = false
     case .no:
-      nextState.entryTitle = ""
-      nextState.title = ""
-      nextState.content = ""
-    }
-
-    return nextState
-  }
-
-  /// Updates the title of the new entry
-  /// - Parameter title: New title
-  @MainActor
-  func updateTitle(_ title: String) {
-    updateState { state in
-      state.title = title
-      state.isEditing = true
+      newState.entryTitle = ""
+      newState.title = ""
+      newState.content = ""
+      newState.shouldDismiss = true
     }
   }
 
-  /// Updates the content of the new entry
-  /// - Parameter content: New content
-  @MainActor
-  func updateContent(_ content: String) {
-    updateState { state in
-      state.content = content
-    }
-  }
+  /// Handles both local and store state changes
+  override func scopeStateOnAction(
+    _ action: Action,
+    _ newState: inout State
+  ) -> ((inout DiaryStoreState) -> Void)? {
+    switch action {
+    case .updateTitle(let title):
+      newState.title = title
+      newState.isEditing = true
 
-  /// Sets the editing state
-  /// - Parameter isEditing: Whether the user is currently editing
-  @MainActor
-  func startEditing() {
-    updateState { state in
-      state.isEditing = true
-    }
-  }
+    case .updateContent(let content):
+      newState.content = content
 
-  @MainActor
-  func finishEditing(save: Bool) {
-    updateState { state in
-      state.savingStatus = .saving
-    }
+    case .startEditing:
+      newState.isEditing = true
 
-    guard !viewState.title.isEmpty else {
-      return
-    }
+    case .finishEditing(let save):
+      guard save else {
+        newState.isEditing = false
+        return { state in
+          state.entrySelectionMode = .no
+        }
+      }
 
-    let newEntry = DiaryEntry(id: .init(),
-                           title: viewState.title,
-                           content: viewState.content,
-                           createdAt: .now)
+      newState.savingStatus = .saving
 
-    Task {
-      try? await Task.sleep(for: .seconds(2))
-      dispatchUpdate { state in
+      guard !newState.title.isEmpty else {
+        return nil
+      }
+
+      let newEntry = DiaryEntry(
+        id: .init(),
+        title: newState.title,
+        content: newState.content,
+        createdAt: .now
+      )
+
+      return { state in
         switch state.entrySelectionMode {
-          case .addingNew:
+        case .addingNew:
           state.entries.append(newEntry)
         case let .selecting(existingEntry):
           let updatedEntry = existingEntry.new(title: newEntry.title, content: newEntry.content)
-          state.entries = state.entries.map { $0.id == existingEntry.id  ? updatedEntry : $0 }
-        case .no: break
+          state.entries = state.entries.map { $0.id == existingEntry.id ? updatedEntry : $0 }
+        case .no:
+          break
         }
-        state.entrySelectionMode = .no
       }
 
-      updateState { state in
-        state.savingStatus = .saved
-        state.isEditing = false
+    case .markAsSaved:
+      newState.savingStatus = .saved
+      newState.isEditing = false
+      return { state in
+        state.entrySelectionMode = .no
       }
+    }
+
+    return nil
+  }
+
+  override func onStateDidChange(_ change: BindifyStateChange<State>) async {
+    if change.isStartedSaving {
+      try? await Task.sleep(for: .seconds(2))
+      onAction(.markAsSaved)
     }
   }
 }
 
+extension BindifyStateChange<DiaryEntryViewModel.State> {
+  var isStartedSaving: Bool {
+    newState.savingStatus == .saving && oldState.savingStatus != newState.savingStatus && trigger == .actionUpdate
+  }
+}
 
 

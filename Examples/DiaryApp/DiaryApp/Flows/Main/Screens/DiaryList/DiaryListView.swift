@@ -2,7 +2,7 @@ import SwiftUI
 import Bindify
 
 /// View for displaying the list of diary entries
-struct DiaryListView: BindifyStateView {
+struct DiaryListView: BindifyView {
   /// View model for the diary list
   @StateObject var viewModel: DiaryListViewModel
 
@@ -21,9 +21,9 @@ struct DiaryListView: BindifyStateView {
               get: { state.selectedEntryId == entry.id },
               set: { isActive in
                 if isActive {
-                  viewModel.selectEntry(entry)
+                  onAction(.selectEntry(entry))
                 } else {
-                  viewModel.clearSelection()
+                  onAction(.clearSelection)
                 }
               }
             )
@@ -47,7 +47,7 @@ struct DiaryListView: BindifyStateView {
         }
         .onDelete { indexSet in
           for index in indexSet {
-            viewModel.removeEntry(at: index)
+            onAction(.removeEntry(at: index))
           }
         }
       }
@@ -55,10 +55,9 @@ struct DiaryListView: BindifyStateView {
       .toolbar {
         ToolbarItem(placement: .navigationBarTrailing) {
           NavigationLink(
-            isActive: bindTo(\.isAddingNew, onSet: { newValue in
-              if newValue {
-                viewModel.startAddingNew()
-              }
+            isActive: bindTo(\.isAddingNew, action: { newValue in
+              guard newValue else { return nil }
+              return .startAddingNew
             })
           ) {
             DiaryEntryView(viewModel.context)

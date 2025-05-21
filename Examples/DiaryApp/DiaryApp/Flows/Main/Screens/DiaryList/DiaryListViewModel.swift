@@ -2,50 +2,33 @@ import Foundation
 import Bindify
 import SwiftUI
 
-/// State for the diary list screen
-struct DiaryListState: BindifyViewState {
-  /// Collection of diary entries to display
-  var entries: [DiaryEntry] = []
-  /// Currently selected entry for navigation
-  var selectedEntryId: UUID?
-  /// Whether we're adding a new entry
-  var isAddingNew: Bool = false
-
-  func entry(at index: Int) -> DiaryEntry {
-    entries[index]
-  }
-}
-
 /// View model for the diary list screen
-final class DiaryListViewModel: BindifyViewModel<DiaryContext, DiaryListState>, BindifyStatableViewModel {
-
-  @MainActor func selectEntry(_ entry: DiaryEntry) {
-    dispatchUpdate {
-      $0.entrySelectionMode = .selecting(entry)
-    }
+final class DiaryListViewModel: BindifyViewModel<DiaryContext, DiaryListViewModel.State, DiaryListViewModel.Action> {
+  /// Actions that can be performed on the diary list
+  enum Action: Equatable {
+    case selectEntry(DiaryEntry)
+    case clearSelection
+    case startAddingNew
+    case finishAddingNew
+    case removeEntry(at: Int)
+    case removeEntryById(UUID)
+    case refresh
   }
 
-  @MainActor func clearSelection() {
-    dispatchUpdate {
-      $0.entrySelectionMode = .no
-    }
-  }
+  /// State for the diary list screen
+  struct State: BindifyViewState {
+    /// Collection of diary entries to display
+    var entries: [DiaryEntry] = []
+    /// Currently selected entry for navigation
+    var selectedEntryId: UUID?
+    /// Whether we're adding a new entry
+    var isAddingNew: Bool = false
+    /// Local UI state
+    var isRefreshing: Bool = false
 
-  @MainActor func startAddingNew() {
-    dispatchUpdate {
-      $0.entrySelectionMode = .addingNew
+    func entry(at index: Int) -> DiaryEntry {
+      entries[index]
     }
-  }
-
-  @MainActor func finishAddingNew() {
-    updateState { state in
-      state.isAddingNew = false
-    }
-  }
-
-  func removeEntry(at index: Int) {
-    let entry = viewState.entry(at: index)
-    removeEntry(id: entry.id)
   }
 
   /// Creates a new diary list view model
@@ -55,26 +38,62 @@ final class DiaryListViewModel: BindifyViewModel<DiaryContext, DiaryListState>, 
   }
 
   /// Transforms the store state into the view state
-  /// - Parameter storeState: Current store state
-  /// - Returns: New view state
-  override func scopeStateOnStoreChange(_ storeState: DiaryStoreState) -> DiaryListState {
-    var nextState = viewState
-    nextState.entries = storeState.entries.sorted { $0.createdAt > $1.createdAt }
-    nextState.isAddingNew = storeState.entrySelectionMode == .addingNew
+  /// - Parameters:
+  ///   - storeState: Current store state
+  ///   - newState: The view state to be modified
+  override func scopeStateOnStoreChange(
+    _ storeState: DiaryStoreState,
+    _ newState: inout State
+  ) {
+    newState.entries = storeState.entries.sorted { $0.createdAt > $1.createdAt }
+    newState.isAddingNew = storeState.entrySelectionMode == .addingNew
     if case let .selecting(selectedEntry) = storeState.entrySelectionMode {
-      nextState.selectedEntryId = selectedEntry.id
+      newState.selectedEntryId = selectedEntry.id
     } else {
-      nextState.selectedEntryId = nil
+      newState.selectedEntryId = nil
     }
-    return nextState
   }
 
-  /// Removes a diary entry
-  /// - Parameter id: ID of the entry to remove
-  func removeEntry(id: UUID) {
-    dispatchUpdate { state in
-      state.entries.removeAll { $0.id == id }
+  /// Handles both local and store state changes
+  override func scopeStateOnAction(
+    _ action: Action,
+    _ newState: inout State
+  ) -> ((inout DiaryStoreState) -> Void)? {
+    switch action {
+    case .selectEntry(let entry):
+      return { state in
+        state.entrySelectionMode = .selecting(entry)
+      }
+
+    case .clearSelection:
+      return { state in
+        state.entrySelectionMode = .no
+      }
+
+    case .startAddingNew:
+      return { state in
+        state.entrySelectionMode = .addingNew
+      }
+
+    case .finishAddingNew:
+      newState.isAddingNew = false
+
+    case .removeEntry(let index):
+      let entry = newState.entry(at: index)
+      return { state in
+        state.entries.removeAll { $0.id == entry.id }
+      }
+
+    case .removeEntryById(let id):
+      return { state in
+        state.entries.removeAll { $0.id == id }
+      }
+
+    case .refresh:
+      newState.isRefreshing = true
     }
+
+    return nil
   }
 }
 

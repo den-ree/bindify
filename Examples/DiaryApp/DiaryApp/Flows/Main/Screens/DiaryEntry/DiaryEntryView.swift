@@ -2,7 +2,7 @@ import SwiftUI
 import Bindify
 
 /// View for adding a new diary entry
-struct DiaryEntryView: BindifyStateView {
+struct DiaryEntryView: BindifyView {
   /// View model for adding diary entries
   @StateObject var viewModel: DiaryEntryViewModel
   /// Environment presentation mode for dismissing the view
@@ -26,28 +26,24 @@ struct DiaryEntryView: BindifyStateView {
       ZStack {
         Form {
           Section(header: Text("Title")) {
-            TextField("Enter title", text: bindTo(\.title, onSet: { newValue in
-              viewModel.updateTitle(newValue)
-              }))
-              .focused($focusedField, equals: .title)
-              .onChange(of: focusedField) { oldValue, newValue in
-                if newValue == .title {
-                  viewModel.startEditing()
-                }
+            TextField("Enter title", text: bindTo(\.title, action: { .updateTitle($0) }))
+            .focused($focusedField, equals: .title)
+            .onChange(of: focusedField) { oldValue, newValue in
+              if newValue == .title {
+                onAction(.startEditing)
               }
+            }
           }
 
           Section(header: Text("Content")) {
-              TextEditor(text: bindTo(\.content, onSet: { newValue in
-                viewModel.updateContent(newValue)
-              }))
-              .frame(minHeight: 200)
-              .focused($focusedField, equals: .content)
-              .onChange(of: focusedField) { oldValue, newValue in
-                if newValue == .content {
-                  viewModel.startEditing()
-                }
+            TextEditor(text: bindTo(\.content, action: { .updateContent($0) }))
+            .frame(minHeight: 200)
+            .focused($focusedField, equals: .content)
+            .onChange(of: focusedField) { oldValue, newValue in
+              if newValue == .content {
+                onAction(.startEditing)
               }
+            }
           }
         }
         .navigationTitle(state.entryTitle)
@@ -56,21 +52,20 @@ struct DiaryEntryView: BindifyStateView {
             ToolbarItem(placement: .navigationBarLeading) {
               Button("Cancel") {
                 focusedField = nil
-                viewModel.finishEditing(save: false)
-                presentationMode.wrappedValue.dismiss()
+                onAction(.finishEditing(save: false))
               }
             }
 
             ToolbarItem(placement: .navigationBarTrailing) {
               Button("Save") {
                 focusedField = nil
-                viewModel.finishEditing(save: true)
+                onAction(.finishEditing(save: true))
               }
               .disabled(state.isSavingDisabled)
             }
           }
         }
-        .onChange(of: state.isSaved) { oldValue, newValue in
+        .onChange(of: state.shouldDismiss) { oldValue, newValue in
           if newValue {
             presentationMode.wrappedValue.dismiss()
           }
