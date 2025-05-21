@@ -7,21 +7,10 @@
 
 import Combine
 
-/// Protocol defining a view model that provides a read-only state
-public protocol BindifyStatableViewModel {
-  associatedtype State: BindifyLocalState
-
-  /// The read-only state derived from the global store state
-  var state: State { get }
-}
-
-/// Protocol defining a view model that can respond to actions
-public protocol BindifyActionableViewModel {
+public protocol BindifiableViewModel: ObservableObject {
+  associatedtype StoreContext: BindifyContext
+  associatedtype ViewState: BindifyViewState
   associatedtype Action: Equatable
-
-  /// Process an action to update the store state
-  /// - Parameter action: The action to process
-  @MainActor func onAction(_ action: Action)
 }
 
 /// A base view model class that integrates with a store and manages state.
@@ -31,26 +20,27 @@ public protocol BindifyActionableViewModel {
 /// - Store state updates through actions
 /// - Reactive updates when store state changes
 ///
-open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyLocalState>: ObservableObject, BindifyStatableViewModel {
+open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyViewState, Action: Equatable>: BindifiableViewModel {
   /// Set of cancellables to manage subscriptions
-  fileprivate var cancellables = Set<AnyCancellable>()
+  private var cancellables = Set<AnyCancellable>()
 
   /// The store context used by this view model
   public let context: StoreContext
 
-  /// The current read-only state of the view, derived from the store state
-  @Published public private(set) var state: ViewState
+  /// The current read-only state derived from the store state, specifically scoped for the view
+  @Published internal private(set) var viewState: ViewState
 
   /// Creates a new view model instance with the given store context
   /// - Parameter context: The store context to use for state management
   public init(_ context: StoreContext) {
     self.context = context
-    self.state = .init()
+    self.viewState = .init()
 
     Task {
       await context.store.subscribe { [weak self] old, new in
         guard let self = self else { return }
-        let newState = self.scopeStateOnChange(new)
+        var newState = self.viewState
+        self.scopeStateOnStoreChange(new, &newState)
 
         Task {
           await self.updateState({ $0 = newState }, trigger: old == nil ? .storeConnection : .storeUpdate)
@@ -64,27 +54,54 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyLoca
     cancellables.removeAll()
   }
 
-  /// Updates the global store's state using a mutation block
+  /// The main entry point for handling actions
   /// 
-  /// This is the preferred way to make state changes in the unidirectional data flow pattern.
-  /// Changes to the store will automatically trigger view state updates.
+  /// This method processes actions and updates state accordingly.
+  /// It first updates the view state based on the action, then optionally updates the store.
   ///
-  /// - Parameter block: A closure that modifies the store's state
-  public func updateStore(_ block: @escaping (inout StoreContext.StoreState) -> Void) {
-    Task {
-      // Note: Store updates will automatically trigger refreshState through the subscription
-      await context.store.update(state: block)
+  /// - Parameter action: The action to process
+  @MainActor
+  open func onAction(_ action: Action) {
+    var newState = viewState
+    let storeUpdate = scopeStateOnAction(action, &newState)
+    updateState({ $0 = newState }, trigger: .actionUpdate)
+
+    if let update = storeUpdate {
+      Task {
+        await context.store.update(state: update)
+      }
     }
   }
 
-  /// Transforms the store state into a view state
+  /// Scopes the action into state changes
+  /// 
+  /// This method handles both local view state changes and store state changes.
+  /// It should be pure and deterministic - the same action and state should always produce the same changes.
+  ///
+  /// - Parameters:
+  ///   - action: The action being processed
+  ///   - newState: The current view state to be modified
+  /// - Returns: Optional closure to update the store state
+  open func scopeStateOnAction(
+    _ action: Action,
+    _ newState: inout ViewState
+  ) -> ((inout StoreContext.StoreState) -> Void)? {
+    // Default implementation does nothing
+    return nil
+  }
+
+  /// Scopes the store state into the local view state
   /// 
   /// This is the core mapping function that defines how the view state is derived from the store state.
   /// It should be pure and deterministic - the same store state should always produce the same view state.
   ///
-  /// - Parameter storeState: The current store state
-  /// - Returns: A new view state derived from the store state
-  open func scopeStateOnChange(_ storeState: StoreContext.StoreState) -> ViewState {
+  /// - Parameters:
+  ///   - storeState: The current store state
+  ///   - newState: The view state to be modified
+  open func scopeStateOnStoreChange(
+    _ storeState: StoreContext.StoreState,
+    _ newState: inout ViewState
+  ) {
     fatalError(#function + " must be overridden")
   }
 
@@ -97,21 +114,6 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyLoca
   /// - Parameter change: Contains the old state, new state, and trigger type
   @MainActor
   open func onStateDidChange(_ change: BindifyStateChange<ViewState>) async {}
-
-  /// Manually refreshes the view state by deriving it from the current store state
-  /// 
-  /// This method is useful when you need to force a view state refresh without changing the store.
-  /// In the unidirectional data flow pattern, this should rarely be needed as store changes
-  /// automatically trigger view state updates.
-  /// 
-  /// - Returns: A task that completes when the state has been refreshed
-  @MainActor
-  public func refreshState() async {
-    let currentStoreState = await context.store.state
-    let newState = self.scopeStateOnChange(currentStoreState)
-
-    await self.updateState({ $0 = newState }, trigger: .refreshUpdate)
-  }
 
   /// Subscribes to a cancellable and stores it for lifecycle management
   ///
@@ -131,9 +133,9 @@ private extension BindifyViewModel {
   /// - Parameters:
   ///   - block: A closure that modifies the view state
   ///   - trigger: The source that triggered this state update
-  @MainActor func updateState(_ block: @escaping (inout ViewState) -> Void, trigger: BindifyStateChange<ViewState>.Trigger) async {
-    let oldState = state
-    var newState = state
+  @MainActor func updateState(_ block: @escaping (inout ViewState) -> Void, trigger: BindifyStateChange<ViewState>.Trigger) {
+    let oldState = viewState
+    var newState = viewState
     block(&newState)
 
     let change = BindifyStateChange(trigger: trigger, oldState: oldState, newState: newState)
@@ -142,7 +144,7 @@ private extension BindifyViewModel {
 
     onStateWillChange(change)
 
-    state = change.newState
+    viewState = change.newState
 
     Task {
       await onStateDidChange(change)

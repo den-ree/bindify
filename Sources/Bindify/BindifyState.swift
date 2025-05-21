@@ -21,7 +21,7 @@ public protocol BindifyStoreState: BindifyState {}
 /// This state is optimized for view rendering and contains derived/computed properties.
 /// In the unidirectional data flow pattern, this state should never be directly mutated
 /// but rather always derived from the store state.
-public protocol BindifyLocalState: BindifyState {
+public protocol BindifyViewState: BindifyState {
   /// Default initializer for creating an empty state
   init()
 }
@@ -34,8 +34,8 @@ public struct BindifyStateChange<State: BindifyState>: Equatable, Sendable {
     case storeConnection
     /// An update from the store propagated to the view
     case storeUpdate
-    /// A forced refresh update within the view model
-    case refreshUpdate
+    /// A local update within the view model
+    case actionUpdate
   }
 
   /// The event that triggered this state change
