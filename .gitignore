@@ -47,6 +47,10 @@ playground.xcworkspace
 # .swiftpm
 
 .build/
+.swiftpm/
+Packages/
+Package.pins
+Package.resolved
 
 # CocoaPods
 #
@@ -87,3 +91,20 @@ iOSInjectionProject/
 
 # macOS
 .DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts
+*.o
+*.out
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcworkspace/xcshareddata/
+*.xcworkspace/contents.xcworkspacedata
