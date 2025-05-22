@@ -28,7 +28,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   public let context: StoreContext
 
   /// The current read-only state derived from the store state, specifically scoped for the view
-  @Published internal private(set) var viewState: ViewState
+  @Published fileprivate(set) var viewState: ViewState
 
   /// Creates a new view model instance with the given store context
   /// - Parameter context: The store context to use for state management

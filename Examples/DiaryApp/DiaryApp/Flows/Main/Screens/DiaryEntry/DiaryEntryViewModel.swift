@@ -78,7 +78,6 @@ final class DiaryEntryViewModel: BindifyViewModel<DiaryContext, DiaryEntryViewMo
     switch action {
     case .updateTitle(let title):
       newState.title = title
-      newState.isEditing = true
 
     case .updateContent(let content):
       newState.content = content
