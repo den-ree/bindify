@@ -16,7 +16,16 @@ let package = Package(
     targets: [
         .target(
             name: "Bindify",
-            dependencies: []),
+            dependencies: [],
+            swiftSettings: [
+                .enableUpcomingFeature("BareSlashRegexLiterals"),
+                .enableUpcomingFeature("ConciseMagicFile"),
+                .enableUpcomingFeature("ExistentialAny"),
+                .enableUpcomingFeature("ForwardTrailingClosures"),
+                .enableUpcomingFeature("ImplicitOpenExistentials"),
+                .enableUpcomingFeature("StrictConcurrency")
+            ]
+        ),
         .testTarget(
             name: "BindifyTests",
             dependencies: ["Bindify"]),
