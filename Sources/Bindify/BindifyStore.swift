@@ -101,6 +101,7 @@ extension BindifyStore {
       updates((old: old, new: new))
     })
 
+    // Send initial state
     let currentState = await state
     updates((nil, currentState))
 
