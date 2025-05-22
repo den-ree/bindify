@@ -61,7 +61,7 @@ For detailed documentation, including:
 - Testing guidelines
 - Advanced usage examples
 
-Please visit our [Documentation](Documentation.md).
+Please visit our [Documentation](Sources/Bindify/Bindify.docc/Documentation.md).
 
 ## License
 
