@@ -27,7 +27,7 @@ public protocol BindifiableViewModel: ObservableObject {
   associatedtype ViewState: BindifyViewState
 
   /// The type of actions that can be processed by this view model.
-  associatedtype Action: Equatable
+  associatedtype Action: BindifyAction
 }
 
 /// A base view model class that integrates with a store and manages state.
@@ -71,6 +71,23 @@ public protocol BindifiableViewModel: ObservableObject {
 ///     ) {
 ///         newState.name = storeState.userProfile.name
 ///     }
+///
+///     override func onStateEvent(_ event: BindifyStateEvent<UserProfileAction, UserProfileViewState>) {
+///         switch event.trigger {
+///         case .initial:
+///             // Handle initial state
+///         case .store:
+///             // Handle store update
+///         case .action(let action):
+///             // Handle action side effects
+///             switch action {
+///             case .updateName:
+///                 // Handle name update side effects
+///             case .save:
+///                 // Handle save side effects
+///             }
+///         }
+///     }
 /// }
 /// ```
 ///
@@ -89,14 +106,15 @@ public protocol BindifiableViewModel: ObservableObject {
 /// - ``scopeStateOnAction(_:_:)``
 /// - ``scopeStateOnStoreChange(_:_:)``
 /// - ``onAction(_:)``
-/// - ``onStateEvent(_:_:)``
+/// - ``onStateEvent(_:)``
 ///
 /// ### Related Types
 ///
 /// - ``BindifyContext``
 /// - ``BindifyViewState``
 /// - ``BindifyStateChange``
-open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyViewState, Action: Equatable>: BindifiableViewModel {
+/// - ``BindifyStateEvent``
+open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyViewState, Action: BindifyAction>: BindifiableViewModel {
   /// Set of cancellables to manage subscriptions
   private var cancellables = Set<AnyCancellable>()
 
@@ -120,7 +138,14 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
         var newState = self.viewState
         self.scopeStateOnStoreChange(new, &newState)
         Task { @MainActor in
-          self.updateState(newState, trigger: old == nil ? .storeConnection : .storeUpdate)
+
+          let change = BindifyStateChange(oldState: self.viewState, newState: newState)
+
+          if change.hasChanged {
+            self.viewState = change.newState
+          }
+
+          self.onStateEvent(.init(trigger: old == nil ? .initial : .store, change: change))
         }
       }.store(in: &cancellables)
     }
@@ -214,7 +239,8 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   /// Called when a state event occurs
   ///
   /// This method is called for all state-related events, including:
-  /// - State changes (will/did)
+  /// - Initial state connection
+  /// - Store updates
   /// - Action processing
   ///
   /// ## Overview
@@ -225,23 +251,27 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   /// ## Usage
   ///
   /// ```swift
-  /// override func onStateEvent(_ event: BindifyStateEvent<Action>, _ change: BindifyStateChange<ViewState>) {
-  ///     switch event {
-  ///     case .willChange:
-  ///         // Handle state will change
-  ///     case .didChange:
-  ///         // Handle state did change
-  ///     case .onAction(let action):
-  ///         // Handle action processing
+  /// override func onStateEvent(_ event: BindifyStateEvent<Action, ViewState>) {
+  ///     switch event.trigger {
+  ///     case .initial:
+  ///         // Handle initial state
+  ///     case .store:
+  ///         // Handle store update
+  ///     case .action(let action):
+  ///         // Handle action side effects
+  ///         switch action {
+  ///         case .updateName:
+  ///             // Handle name update side effects
+  ///         case .save:
+  ///             // Handle save side effects
+  ///         }
   ///     }
   /// }
   /// ```
   ///
-  /// - Parameters:
-  ///   - event: The type of state event that occurred
-  ///   - change: The state change that occurred
+  /// - Parameter event: The state event that occurred
   @MainActor
-  open func onStateEvent(_ event: BindifyStateEvent<Action>, _ change: BindifyStateChange<ViewState>) {}
+  open func onStateEvent(_ event: BindifyStateEvent<Action, ViewState>) {}
 
   /// Subscribes to a cancellable and stores it for lifecycle management
   ///
@@ -276,7 +306,12 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   func onAction(_ action: Action) {
     var newState = viewState
     let storeUpdate = scopeStateOnAction(action, &newState)
-    let change = updateState(newState, trigger: .actionUpdate)
+
+    let change = BindifyStateChange(oldState: viewState, newState: newState)
+
+    if change.hasChanged {
+      viewState = change.newState
+    }
 
     if let update = storeUpdate {
       Task {
@@ -284,31 +319,6 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
       }
     }
 
-    onStateEvent(.onAction(action), change)
+    onStateEvent(.init(trigger: .action(action), change: change))
   }
 }
-
-private extension BindifyViewModel {
-  /// Internal method to update the view state with lifecycle hooks
-  ///
-  /// This method handles the state update process including:
-  /// - Change detection
-  /// - Lifecycle notifications (willChange/didChange)
-  ///
-  /// - Parameters:
-  ///   - block: A closure that modifies the view state
-  ///   - trigger: The source that triggered this state update
-  @MainActor 
-  @discardableResult func updateState(_ newState: ViewState, trigger: BindifyStateChange<ViewState>.Trigger) -> BindifyStateChange<ViewState> {
-    let change = BindifyStateChange(trigger: trigger, oldState: viewState, newState: newState)
-
-    guard change.hasChanged || change.isInitial else { return change }
-
-    onStateEvent(.willChange, change)
-    viewState = change.newState
-    onStateEvent(.didChange, change)
-
-    return change
-  }
-}
-

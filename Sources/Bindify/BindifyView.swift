@@ -77,7 +77,7 @@ public protocol BindifyView: View {
   associatedtype ViewState: BindifyViewState
 
   /// The type of actions that can be dispatched by this view.
-  associatedtype Action: Equatable
+  associatedtype Action: BindifyAction
 
   /// The type of view model that manages this view's state and actions.
   associatedtype ViewModel: BindifiableViewModel where ViewModel.Action == Action, ViewModel.ViewState == ViewState, ViewModel.StoreContext == StoreContext
