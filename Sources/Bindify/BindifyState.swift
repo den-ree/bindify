@@ -189,5 +189,37 @@ public struct BindifyStateChange<State: BindifyState>: Equatable, Sendable {
     public var isInitial: Bool { trigger == .storeConnection }
 
     /// Whether the state actually changed values.
-    var hasChanged: Bool { oldState != newState }
+    public var hasChanged: Bool { oldState != newState }
+}
+
+/// An enum that represents different types of state events in the Bindify framework.
+///
+/// `BindifyStateEvent` provides a unified way to handle all state-related events:
+/// - State changes (will/did)
+/// - Action processing
+///
+/// ## Overview
+///
+/// This enum serves as a single entry point for all state-related events,
+/// making it easier to handle different types of events in a unified way.
+///
+/// ## Usage
+///
+/// ```swift
+/// switch event {
+/// case .willChange:
+///     // Handle state will change
+/// case .didChange:
+///     // Handle state did change
+/// case .onAction(let action):
+///     // Handle action processing
+/// }
+/// ```
+public enum BindifyStateEvent<Action: Equatable>: Equatable {
+    /// The state is about to change
+    case willChange
+    /// The state has changed
+    case didChange
+    /// An action is being processed
+    case onAction(Action)
 }
