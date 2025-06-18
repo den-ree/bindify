@@ -156,52 +156,6 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
     cancellables.removeAll()
   }
 
-  @MainActor func send(_ action: Action) {
-    onAction(action)
-  }
-
-  /// Scopes the action into state changes
-  ///
-  /// This method handles both local view state changes and store state changes.
-  /// It should be pure and deterministic - the same action and state should always produce the same changes.
-  ///
-  /// ## Overview
-  ///
-  /// This method is called for every action and should:
-  /// - Update the view state based on the action
-  /// - Return a store update closure if the action requires store changes
-  ///
-  /// ## Usage
-  ///
-  /// ```swift
-  /// override func scopeStateOnAction(
-  ///     _ action: UserProfileAction,
-  ///     _ newState: inout UserProfileViewState
-  /// ) -> ((inout AppContext.StoreState) -> Void)? {
-  ///     switch action {
-  ///     case .updateName(let name):
-  ///         newState.name = name
-  ///         return nil
-  ///     case .save:
-  ///         return { state in
-  ///             state.userProfile.name = newState.name
-  ///         }
-  ///     }
-  /// }
-  /// ```
-  ///
-  /// - Parameters:
-  ///   - action: The action being processed
-  ///   - newState: The current view state to be modified
-  /// - Returns: Optional closure to update the store state
-  open func scopeStateOnAction(
-    _ action: Action,
-    _ newState: inout ViewState
-  ) -> ((inout StoreContext.StoreState) -> Void)? {
-    // Default implementation does nothing
-    return nil
-  }
-
   /// Scopes the store state into the local view state
   ///
   /// This is the core mapping function that defines how the view state is derived from the store state.
@@ -234,6 +188,62 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
     _ newState: inout ViewState
   ) {
     fatalError(#function + " must be overridden")
+  }
+
+  /// Scopes the action into state changes
+  ///
+  /// This method handles local view state changes based on actions.
+  /// It should be pure and deterministic - the same action and state should always produce the same changes.
+  ///
+  /// ## Overview
+  ///
+  /// This method is called for every action and should:
+  /// - Update the view state based on the action
+  /// - Handle any derived state calculations
+  /// - Maintain UI-specific state
+  ///
+  /// For store updates, use the `updateStore` method within `onStateEvent`.
+  ///
+  /// ## Usage
+  ///
+  /// ```swift
+  /// override func scopeStateOnAction(
+  ///     _ action: UserProfileAction,
+  ///     _ newState: inout UserProfileViewState
+  /// ) {
+  ///     switch action {
+  ///     case .updateName(let name):
+  ///         newState.name = name
+  ///     case .toggleEditing:
+  ///         newState.isEditing.toggle()
+  ///     }
+  /// }
+  ///
+  /// override func onStateEvent(_ event: BindifyStateEvent<UserProfileAction, UserProfileViewState>) {
+  ///     switch event.trigger {
+  ///     case .action(let action):
+  ///         switch action {
+  ///         case .save:
+  ///             updateStore { state in
+  ///                 state.userProfile.name = viewState.name
+  ///             }
+  ///         default:
+  ///             break
+  ///         }
+  ///     default:
+  ///         break
+  ///     }
+  /// }
+  /// ```
+  ///
+  /// - Parameters:
+  ///   - action: The action being processed
+  ///   - newState: The current view state to be modified
+  open func scopeStateOnAction(
+    _ action: Action,
+    _ newState: inout ViewState
+  ) {
+    // Default implementation does nothing
   }
 
   /// Called when a state event occurs
@@ -273,6 +283,27 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   @MainActor
   open func onStateEvent(_ event: BindifyStateEvent<Action, ViewState>) {}
 
+  /// Updates the global store's state using a mutation block
+  ///
+  /// - Parameter block: A closure that modifies the store's state
+  @MainActor
+  public func updateStore(_ block: @escaping (inout StoreContext.StoreState) -> Void) {
+    Task { @MainActor in
+      await context.store.update(state: block)
+    }
+  }
+
+  /// Sends an action to the view model
+  ///
+  /// This method is used to trigger actions within the view model.
+  /// It updates the view state and triggers the appropriate state event.
+  ///
+  /// - Parameter action: The action to send
+  @MainActor
+  public func send(_ action: Action) {
+    onAction(action)
+  }
+
   /// Subscribes to a cancellable and stores it for lifecycle management
   ///
   /// This method ensures that subscriptions are properly managed and cleaned up
@@ -303,20 +334,14 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   ///
   /// - Parameter action: The action to process
   @MainActor
-  func onAction(_ action: Action) {
+  private func onAction(_ action: Action) {
     var newState = viewState
-    let storeUpdate = scopeStateOnAction(action, &newState)
+    scopeStateOnAction(action, &newState)
 
     let change = BindifyStateChange(oldState: viewState, newState: newState)
 
     if change.hasChanged {
       viewState = change.newState
-    }
-
-    if let update = storeUpdate {
-      Task {
-        await context.store.update(state: update)
-      }
     }
 
     onStateEvent(.init(trigger: .action(action), change: change))

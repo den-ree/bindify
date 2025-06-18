@@ -120,7 +120,7 @@ public extension BindifyView where ViewModel: BindifyViewModel<StoreContext, Vie
   ///
   /// - Parameter action: The action to dispatch
   @MainActor func onAction(_ action: Action) {
-    viewModel.onAction(action)
+    viewModel.send(action)
   }
 
   /// Creates a two-way binding between a view's state property and an action.
