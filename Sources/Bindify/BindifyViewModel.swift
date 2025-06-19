@@ -137,9 +137,12 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
         guard let self = self else { return }
         var newState = self.viewState
         self.scopeStateOnStoreChange(new, &newState)
-        self.scopeStateOnStoreChange(new)
 
         let change = BindifyStateChange(oldState: self.viewState, newState: newState)
+
+        Task {
+          await self.scopeStateOnStoreChange(new)
+        }
 
         Task { @MainActor in
 
@@ -195,10 +198,9 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
     fatalError(#function + " must be overridden")
   }
 
-  @MainActor
   open func scopeStateOnStoreChange(
     _ storeState: StoreContext.StoreState
-  ) {
+  ) async {
 
   }
 
