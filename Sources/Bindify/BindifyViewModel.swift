@@ -195,7 +195,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   open func scopeStateOnStoreChangeWithSideEffect(
     _ storeState: StoreContext.StoreState,
     _ newState: inout ViewState
-  ) -> ((BindifyStateSideEffect<ViewState, StoreContext.StoreState>) -> Void)?
+  ) -> (@MainActor (BindifyStateSideEffect<ViewState, StoreContext.StoreState>) -> Void)?
   {
     fatalError(#function + " must be overridden")
   }
