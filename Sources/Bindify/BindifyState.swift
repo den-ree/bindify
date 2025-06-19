@@ -192,14 +192,14 @@ public protocol BindifyAction: Equatable, Sendable {}
 /// - ``isInitial``
 /// - ``hasChanged``
 public struct BindifyStateChange<State: BindifyState>: Equatable, Sendable {
-    /// The state before the change occurred.
-    public let oldState: State
+  /// The state before the change occurred.
+  public let oldState: State
 
-    /// The state after the change occurred.
-    public let newState: State
+  /// The state after the change occurred.
+  public let newState: State
 
-    /// Whether the state actually changed values.
-    public var hasChanged: Bool { oldState != newState }
+  /// Whether the state actually changed values.
+  public var hasChanged: Bool { oldState != newState }
 }
 
 /// The type of event that triggered a state change.
@@ -228,24 +228,11 @@ public struct BindifyStateEvent<Action: BindifyAction, State: BindifyState, Stor
   }
 }
 
-public struct BindifyStateUpdate<State: BindifyState, StoreState: BindifyStoreState> {
-  let update: BindifyStateUpdateSideEffect<State, StoreState>
+public struct BindifyStateSideEffect<State: BindifyState> {
+  let change: BindifyStateChange<State>
 
   @MainActor
-  public func sideEffect(_ block: @escaping @MainActor (BindifyStateUpdateSideEffect<State, StoreState>) async -> Void) async -> Void {
-    await block(update)
-  }
-}
-
-public struct BindifyStateUpdateSideEffect<State: BindifyState, StoreState: BindifyStoreState> {
-  let store: BindifyStore<StoreState>
-
-  public let change: BindifyStateChange<State>
-
-  @MainActor
-  public func updateStore(_ block: @escaping (inout StoreState) -> Void) {
-    Task { @MainActor in
-      await store.update(state: block)
-    }
+  public func sideEffect(_ block: @escaping @MainActor (BindifyStateChange<State>) async -> Void) async -> Void {
+    await block(change)
   }
 }
