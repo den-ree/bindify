@@ -142,6 +142,8 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
         let change = BindifyStateChange(oldState: self.viewState, newState: newState)
 
         Task { @MainActor in
+
+
           if change.hasChanged {
             self.viewState = change.newState
           }
@@ -193,6 +195,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
     fatalError(#function + " must be overridden")
   }
 
+  @MainActor
   open func scopeStateOnStoreChange(
     _ storeState: StoreContext.StoreState
   ) {
@@ -255,6 +258,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
     // Default implementation does nothing
   }
 
+  @MainActor
   open func scopeStateOnAction(
     _ action: Action
   ) {
