@@ -145,7 +145,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
             self.viewState = change.newState
           }
 
-          self.onStateEvent(.init(store: context.store, trigger: old == nil ? .initial : .store, change: change, sideEffect: .init()))
+          self.onStateEvent(.init(store: context.store, trigger: old == nil ? .initial : .store, change: change))
         }
       }.store(in: &cancellables)
     }
@@ -246,14 +246,6 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
     // Default implementation does nothing
   }
 
-  open func scopeStateOnAction(
-    _ action: Action,
-    _ newState: inout ViewState,
-    _ sideEffects: inout BindifyStateSideEffect<Action, ViewState, StoreContext.StoreState>
-  ) {
-    // Default implementation does nothing
-  }
-
   /// Called when a state event occurs
   ///
   /// This method is called for all state-related events, including:
@@ -312,6 +304,22 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
     onAction(action)
   }
 
+  @MainActor
+  public func send(_ event: BindifyStateUpdateEvent<ViewState, StoreContext.StoreState>) {
+    var newState = viewState
+    event.stateUpdate?(&newState)
+
+    let change = BindifyStateChange(oldState: viewState, newState: newState)
+
+    if change.hasChanged {
+      viewState = change.newState
+    }
+
+    if let storeUpdate = event.storeUpdate {
+      updateStore(storeUpdate)
+    }
+  }
+
   /// Subscribes to a cancellable and stores it for lifecycle management
   ///
   /// This method ensures that subscriptions are properly managed and cleaned up
@@ -344,8 +352,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   @MainActor
   private func onAction(_ action: Action) {
     var newState = viewState
-    var sideEffects: BindifyStateSideEffect<Action, ViewState, StoreContext.StoreState> = .init()
-    scopeStateOnAction(action, &newState, &sideEffects)
+    scopeStateOnAction(action, &newState)
 
     let change = BindifyStateChange(oldState: viewState, newState: newState)
 
@@ -353,6 +360,6 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
       viewState = change.newState
     }
 
-    onStateEvent(.init(store: context.store, trigger: .action(action), change: change, sideEffect: sideEffects))
+    onStateEvent(.init(store: context.store, trigger: .action(action), change: change))
   }
 }

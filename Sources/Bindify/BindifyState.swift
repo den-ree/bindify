@@ -219,31 +219,15 @@ public struct BindifyStateEvent<Action: BindifyAction, State: BindifyState, Stor
 
   public let trigger: Trigger
   public let change: BindifyStateChange<State>
-  public let sideEffect: BindifyStateSideEffect<Action, State, StoreState>
-
-  @MainActor
-  public func executeSideEffect() {
-    sideEffect.beforeStoreUpdate?(change)
-
-    Task { @MainActor in
-      if let updateBlock = sideEffect.storeUpdate {
-        await store.update(state: updateBlock)
-      }
-
-      sideEffect.afterStoreUpdate?(change)
-    }
-  }
 }
 
 @MainActor
-public struct BindifyStateSideEffect<Action: BindifyAction, State: BindifyState, StoreState: BindifyStoreState> {
-  public var beforeStoreUpdate: ((BindifyStateChange<State>) -> Void)?
-  public var storeUpdate: ((inout StoreState) -> Void)?
-  public var afterStoreUpdate: ((BindifyStateChange<State>) -> Void)?
+public struct BindifyStateUpdateEvent<State: BindifyState, StoreState: BindifyStoreState> {
+  public let stateUpdate: ((inout State) -> Void)?
+  public let storeUpdate: ((inout StoreState) -> Void)?
 
-  init() {
-    beforeStoreUpdate = nil
-    storeUpdate = nil
-    afterStoreUpdate = nil
+  public init(stateUpdate: ((inout State) -> Void)? = nil, storeUpdate: ((inout StoreState) -> Void)? = nil) {
+    self.stateUpdate = stateUpdate
+    self.storeUpdate = storeUpdate
   }
 }
