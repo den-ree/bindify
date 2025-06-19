@@ -236,6 +236,7 @@ public struct BindifyStateUpdate<State: BindifyState, StoreState: BindifyStoreSt
   }
 }
 
+@MainActor
 public struct BindifyStateUpdateSideEffect<State: BindifyState, StoreState: BindifyStoreState> {
   let store: BindifyStore<StoreState>
 
