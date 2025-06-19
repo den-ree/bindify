@@ -317,7 +317,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
       viewState = change.newState
     }
 
-    return .init(sideEffect: .init(store: context.store, change: change))
+    return .init(update: .init(store: context.store, change: change))
   }
 
   /// Subscribes to a cancellable and stores it for lifecycle management

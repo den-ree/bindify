@@ -229,7 +229,11 @@ public struct BindifyStateEvent<Action: BindifyAction, State: BindifyState, Stor
 }
 
 public struct BindifyStateUpdate<State: BindifyState, StoreState: BindifyStoreState> {
-  public let sideEffect: BindifyStateUpdateSideEffect<State, StoreState>
+  let update: BindifyStateUpdateSideEffect<State, StoreState>
+
+  public func sideEffect(_ block: @escaping (BindifyStateUpdateSideEffect<State, StoreState>) -> Void) -> Void {
+    block(update)
+  }
 }
 
 public struct BindifyStateUpdateSideEffect<State: BindifyState, StoreState: BindifyStoreState> {
