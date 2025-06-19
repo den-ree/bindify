@@ -227,3 +227,24 @@ public struct BindifyStateEvent<Action: BindifyAction, State: BindifyState, Stor
     }
   }
 }
+
+
+
+public struct BindifyStateSideEffect<State: BindifyState, StoreState: BindifyStoreState> {
+  public enum Trigger: Equatable, Sendable {
+    case initial
+    case store
+  }
+
+  let store: BindifyStore<StoreState>
+
+  public let trigger: Trigger
+  public let change: BindifyStateChange<State>
+
+  @MainActor
+  public func updateStore(_ block: @escaping (inout StoreState) -> Void) {
+    Task { @MainActor in
+      await store.update(state: block)
+    }
+  }
+}
