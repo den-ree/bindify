@@ -307,6 +307,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   }
 
   @MainActor
+  @discardableResult
   public func updateState(_ block: @escaping @MainActor (inout ViewState) -> Void) -> BindifyStateUpdate<ViewState, StoreContext.StoreState> {
     let oldState = viewState
     var newState = viewState
