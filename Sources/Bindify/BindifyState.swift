@@ -222,7 +222,7 @@ public struct BindifyStateEvent<Action: BindifyAction, State: BindifyState, Stor
 }
 
 @MainActor
-public struct BindifyStateUpdateEvent<State: BindifyState, StoreState: BindifyStoreState> {
+public struct BindifyStateUpdate<State: BindifyState, StoreState: BindifyStoreState> {
   public let stateUpdate: ((inout State) -> Void)?
   public let storeUpdate: ((inout StoreState) -> Void)?
 
