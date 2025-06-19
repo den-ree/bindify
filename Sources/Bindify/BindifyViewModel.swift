@@ -145,7 +145,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
             self.viewState = change.newState
           }
 
-          self.onStateEvent(.init(trigger: old == nil ? .initial : .store, change: change))
+          self.onStateEvent(.init(store: context.store, trigger: old == nil ? .initial : .store, change: change))
         }
       }.store(in: &cancellables)
     }
@@ -281,7 +281,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   ///
   /// - Parameter event: The state event that occurred
   @MainActor
-  open func onStateEvent(_ event: BindifyStateEvent<Action, ViewState>) {}
+  open func onStateEvent(_ event: BindifyStateEvent<Action, ViewState, StoreContext.StoreState>) {}
 
   /// Updates the global store's state using a mutation block
   ///
@@ -344,6 +344,6 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
       viewState = change.newState
     }
 
-    onStateEvent(.init(trigger: .action(action), change: change))
+    onStateEvent(.init(store: context.store, trigger: .action(action), change: change))
   }
 }

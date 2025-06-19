@@ -208,13 +208,22 @@ public struct BindifyStateChange<State: BindifyState>: Equatable, Sendable {
 /// - Initial connection to the store
 /// - Updates from the store
 /// - Local actions within the view model
-public struct BindifyStateEvent<Action: BindifyAction, State: BindifyState>: Equatable, Sendable {
+public struct BindifyStateEvent<Action: BindifyAction, State: BindifyState, StoreState: BindifyStoreState> {
   public enum Trigger: Equatable, Sendable {
     case initial
     case store
     case action(Action)
   }
 
+  let store: BindifyStore<StoreState>
+
   public let trigger: Trigger
   public let change: BindifyStateChange<State>
+
+  @MainActor
+  public func updateStore(_ block: @escaping (inout StoreState) -> Void) {
+    Task { @MainActor in
+      await store.update(state: block)
+    }
+  }
 }
