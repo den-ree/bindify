@@ -137,16 +137,13 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
         guard let self = self else { return }
         var newState = self.viewState
         self.scopeStateOnStoreChange(new, &newState)
-        Task { @MainActor in
 
-          let change = BindifyStateChange(oldState: self.viewState, newState: newState)
-
-          if change.hasChanged {
-            self.viewState = change.newState
-          }
-
-          self.onStateEvent(.init(store: store, trigger: old == nil ? .initial : .store, change: change))
+        let change = BindifyStateChange(oldState: self.viewState, newState: newState)
+        if change.hasChanged {
+          self.viewState = change.newState
         }
+
+        self.onStateEvent(.init(store: store, trigger: old == nil ? .initial : .store, change: change))
       }.store(in: &cancellables)
     }
   }
