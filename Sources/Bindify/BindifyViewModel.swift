@@ -335,10 +335,11 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   /// - Parameter action: The action to process
   @MainActor
   private func onAction(_ action: Action) {
+    var oldState = viewState
     var newState = viewState
     scopeStateOnAction(action, &newState)
 
-    let change = BindifyStateChange(oldState: viewState, newState: newState)
+    let change = BindifyStateChange(oldState: oldState, newState: newState)
 
     if change.hasChanged {
       viewState = change.newState
