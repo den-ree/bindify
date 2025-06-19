@@ -306,6 +306,20 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
     onAction(action)
   }
 
+  public func updateState(_ block: @escaping (inout ViewState) -> Void) -> BindifyStateUpdate<ViewState, StoreContext.StoreState> {
+    let oldState = viewState
+    var newState = viewState
+    block(&newState)
+
+    let change = BindifyStateChange(oldState: oldState, newState: newState)
+
+    if change.hasChanged {
+      viewState = change.newState
+    }
+
+    return .init(sideEffect: .init(store: context.store, change: change))
+  }
+
   /// Subscribes to a cancellable and stores it for lifecycle management
   ///
   /// This method ensures that subscriptions are properly managed and cleaned up
