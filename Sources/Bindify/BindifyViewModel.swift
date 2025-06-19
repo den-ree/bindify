@@ -145,7 +145,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
             self.viewState = change.newState
           }
 
-          self.onStateEvent(.init(store: context.store, trigger: old == nil ? .initial : .store, change: change))
+          self.onStateEvent(.init(store: store, trigger: old == nil ? .initial : .store, change: change))
         }
       }.store(in: &cancellables)
     }
@@ -283,11 +283,6 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   @MainActor
   open func onStateEvent(_ event: BindifyStateEvent<Action, ViewState, StoreContext.StoreState>) {}
 
-  @MainActor
-  open func onStateEventWithUpdate(_ event: BindifyStateEvent<Action, ViewState, StoreContext.StoreState>) -> BindifyStateUpdate<ViewState, StoreContext.StoreState> {
-    return .init(stateUpdate: nil, storeUpdate: nil)
-  }
-
   /// Updates the global store's state using a mutation block
   ///
   /// - Parameter block: A closure that modifies the store's state
@@ -307,22 +302,6 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   @MainActor
   public func send(_ action: Action) {
     onAction(action)
-  }
-
-  @MainActor
-  public func send(stateUpdate: ((inout ViewState) -> Void)? = nil, storeUpdate: ((inout StoreContext.StoreState) -> Void)? = nil) {
-    var newState = viewState
-    stateUpdate?(&newState)
-
-    let change = BindifyStateChange(oldState: viewState, newState: newState)
-
-    if change.hasChanged {
-      viewState = change.newState
-    }
-
-    if let storeUpdate {
-      updateStore(storeUpdate)
-    }
   }
 
   /// Subscribes to a cancellable and stores it for lifecycle management
@@ -366,19 +345,5 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
     }
 
     onStateEvent(.init(store: context.store, trigger: .action(action), change: change))
-
-    let event = onStateEventWithUpdate(.init(store: context.store, trigger: .action(action), change: change))
-
-    event.stateUpdate?(&newState)
-
-    let newChange = BindifyStateChange(oldState: viewState, newState: newState)
-
-    if newChange.hasChanged {
-      viewState = newChange.newState
-    }
-
-    if let storeUpdate = event.storeUpdate {
-      updateStore(storeUpdate)
-    }
   }
 }
