@@ -228,8 +228,7 @@ public struct BindifyStateEvent<Action: BindifyAction, State: BindifyState, Stor
   }
 }
 
-
-
+@MainActor
 public struct BindifyStateSideEffect<State: BindifyState, StoreState: BindifyStoreState> {
   public enum Trigger: Equatable, Sendable {
     case initial
