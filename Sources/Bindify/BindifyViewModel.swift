@@ -132,7 +132,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
 
     let store = context.store
 
-    Task { @MainActor in
+    Task {
       await store.subscribe { [weak self] old, new in
         guard let self = self else { return }
         var newState = self.viewState
@@ -335,11 +335,10 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   /// - Parameter action: The action to process
   @MainActor
   private func onAction(_ action: Action) {
-    var oldState = viewState
     var newState = viewState
     scopeStateOnAction(action, &newState)
 
-    let change = BindifyStateChange(oldState: oldState, newState: newState)
+    let change = BindifyStateChange(oldState: viewState, newState: newState)
 
     if change.hasChanged {
       viewState = change.newState
