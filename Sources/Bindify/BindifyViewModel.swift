@@ -147,7 +147,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
           }
 
           self.onStateEvent(.init(store: store, trigger: old == nil ? .initial : .store, change: change))
-          sideEffect?(.init(store: store, trigger: old == nil ? .initial : .store, change: change))
+          await sideEffect?(.init(store: store, trigger: old == nil ? .initial : .store, change: change))
         }
       }.store(in: &cancellables)
     }
@@ -195,7 +195,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   open func scopeStateOnStoreChangeWithSideEffect(
     _ storeState: StoreContext.StoreState,
     _ newState: inout ViewState
-  ) -> (@MainActor (BindifyStateSideEffect<ViewState, StoreContext.StoreState>) -> Void)?
+  ) -> ((BindifyStateSideEffect<ViewState, StoreContext.StoreState>) async -> Void)?
   {
     fatalError(#function + " must be overridden")
   }
