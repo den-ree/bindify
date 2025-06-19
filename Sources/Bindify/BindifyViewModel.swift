@@ -246,12 +246,12 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
     // Default implementation does nothing
   }
 
-  open func scopeStateOnAction2(
+  open func scopeStateOnAction(
     _ action: Action,
-    _ newState: inout ViewState
-  ) -> BindifyStateSideEffect<Action, ViewState, StoreContext.StoreState>? {
+    _ newState: inout ViewState,
+    _ sideEffects: inout BindifyStateSideEffect<Action, ViewState, StoreContext.StoreState>
+  ) {
     // Default implementation does nothing
-    return nil
   }
 
   /// Called when a state event occurs
@@ -344,7 +344,8 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   @MainActor
   private func onAction(_ action: Action) {
     var newState = viewState
-    let result = scopeStateOnAction2(action, &newState)
+    var sideEffects: BindifyStateSideEffect<Action, ViewState, StoreContext.StoreState> = .init()
+    scopeStateOnAction(action, &newState, &sideEffects)
 
     let change = BindifyStateChange(oldState: viewState, newState: newState)
 
@@ -352,6 +353,6 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
       viewState = change.newState
     }
 
-    onStateEvent(.init(store: context.store, trigger: .action(action), change: change, sideEffect: result ?? .init()))
+    onStateEvent(.init(store: context.store, trigger: .action(action), change: change, sideEffect: sideEffects))
   }
 }
