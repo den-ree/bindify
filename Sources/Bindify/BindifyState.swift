@@ -240,4 +240,18 @@ public struct BindifyStateSideEffect<Action: BindifyAction, State: BindifyState,
   public let beforeStoreUpdate: ((BindifyStateChange<State>) -> Void)?
   public let storeUpdate: ((inout StoreState) -> Void)?
   public let afterStoreUpdate: ((BindifyStateChange<State>) -> Void)?
+
+  public init(storeUpdate: ((inout StoreState) -> Void)?,
+              beforeStoreUpdate: ((BindifyStateChange<State>) -> Void)? = nil,
+              afterStoreUpdate: ((BindifyStateChange<State>) -> Void)?) {
+    self.beforeStoreUpdate = beforeStoreUpdate
+    self.storeUpdate = storeUpdate
+    self.afterStoreUpdate = afterStoreUpdate
+  }
+
+  init() {
+    beforeStoreUpdate = nil
+    storeUpdate = nil
+    afterStoreUpdate = nil
+  }
 }

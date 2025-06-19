@@ -145,7 +145,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
             self.viewState = change.newState
           }
 
-          self.onStateEvent(.init(store: context.store, trigger: old == nil ? .initial : .store, change: change, sideEffect: .init(onStateChange: nil, storeUpdate: nil)))
+          self.onStateEvent(.init(store: context.store, trigger: old == nil ? .initial : .store, change: change, sideEffect: .init()))
         }
       }.store(in: &cancellables)
     }
@@ -352,6 +352,6 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
       viewState = change.newState
     }
 
-    onStateEvent(.init(store: context.store, trigger: .action(action), change: change, sideEffect: .init(onStateChange: nil, storeUpdate: result)))
+    onStateEvent(.init(store: context.store, trigger: .action(action), change: change, sideEffect: result ?? .init()))
   }
 }
