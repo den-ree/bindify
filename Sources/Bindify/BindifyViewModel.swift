@@ -249,7 +249,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   open func scopeStateOnAction2(
     _ action: Action,
     _ newState: inout ViewState
-  ) -> ((inout StoreContext.StoreState) -> Void)? {
+  ) -> BindifyStateSideEffect<Action, ViewState, StoreContext.StoreState>? {
     // Default implementation does nothing
     return nil
   }
