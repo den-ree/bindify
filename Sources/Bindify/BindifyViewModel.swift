@@ -137,6 +137,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
         guard let self = self else { return }
         var newState = self.viewState
         self.scopeStateOnStoreChange(new, &newState)
+        self.scopeStateOnStoreChange(new)
 
         let change = BindifyStateChange(oldState: self.viewState, newState: newState)
 
@@ -192,6 +193,12 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
     fatalError(#function + " must be overridden")
   }
 
+  open func scopeStateOnStoreChange(
+    _ storeState: StoreContext.StoreState
+  ) {
+
+  }
+
   /// Scopes the action into state changes
   ///
   /// This method handles local view state changes based on actions.
@@ -244,6 +251,12 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   open func scopeStateOnAction(
     _ action: Action,
     _ newState: inout ViewState
+  ) {
+    // Default implementation does nothing
+  }
+
+  open func scopeStateOnAction(
+    _ action: Action
   ) {
     // Default implementation does nothing
   }
@@ -355,6 +368,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   private func onAction(_ action: Action) {
     var newState = viewState
     scopeStateOnAction(action, &newState)
+    scopeStateOnAction(action)
 
     let change = BindifyStateChange(oldState: viewState, newState: newState)
 
