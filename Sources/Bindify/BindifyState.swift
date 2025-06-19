@@ -232,7 +232,7 @@ public struct BindifyStateUpdate<State: BindifyState, StoreState: BindifyStoreSt
   let update: BindifyStateUpdateSideEffect<State, StoreState>
 
   @MainActor
-  public func sideEffect(_ block: @escaping (BindifyStateUpdateSideEffect<State, StoreState>) -> Void) -> Void {
+  public func sideEffect(_ block: @escaping (BindifyStateUpdateSideEffect<State, StoreState>) -> Void) async -> Void {
     block(update)
   }
 }
