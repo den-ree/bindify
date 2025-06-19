@@ -229,7 +229,7 @@ public struct BindifyStateEvent<Action: BindifyAction, State: BindifyState, Stor
 }
 
 public struct BindifyStateUpdate<State: BindifyState, StoreState: BindifyStoreState> {
-  let sideEffect: BindifyStateUpdateSideEffect<State, StoreState>
+  public let sideEffect: BindifyStateUpdateSideEffect<State, StoreState>
 }
 
 public struct BindifyStateUpdateSideEffect<State: BindifyState, StoreState: BindifyStoreState> {
