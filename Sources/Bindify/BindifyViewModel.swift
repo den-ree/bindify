@@ -197,7 +197,8 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
     _ newState: inout ViewState
   ) -> ((BindifyStateSideEffect<ViewState, StoreContext.StoreState>) async -> Void)?
   {
-    fatalError(#function + " must be overridden")
+  return nil
+//    fatalError(#function + " must be overridden")
   }
 
   /// Scopes the action into state changes
