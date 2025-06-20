@@ -309,7 +309,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   /// - Parameter block: A closure that modifies the store's state
   @MainActor
   public func updateStore(_ block: @escaping (inout StoreContext.StoreState) -> Void) {
-    Task { @MainActor in
+    Task {
       await context.store.update(state: block)
     }
   }
@@ -374,7 +374,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   private func onAction(_ action: Action) {
     var newState = viewState
     scopeStateOnAction(action, &newState)
-    Task {
+    Task { @MainActor in
       await scopeStateOnAction(action)
     }
 
