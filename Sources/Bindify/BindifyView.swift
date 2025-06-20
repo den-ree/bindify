@@ -162,5 +162,14 @@ public extension BindifyView where ViewModel: BindifyViewModel<StoreContext, Vie
       }
     )
   }
+
+  @MainActor func bindTo<T>(_ keyPath: WritableKeyPath<ViewState, T>, action onSet: @escaping (T) -> Void) -> Binding<T> {
+    Binding(
+      get: { state[keyPath: keyPath] },
+      set: { newValue in
+        onSet(newValue)
+      }
+    )
+  }
 }
 
