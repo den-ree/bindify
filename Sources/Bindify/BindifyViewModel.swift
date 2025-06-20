@@ -212,7 +212,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   /// ## Overview
   ///
   /// This method is called for every action and should:
-  /// - Update the view state based on the action
+  /// - Update the view state using the `updateState` method
   /// - Handle any derived state calculations
   /// - Maintain UI-specific state
   ///
@@ -263,7 +263,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   @MainActor
   open func scopeStateOnAction(
     _ action: Action
-  ) {
+  ) async {
     // Default implementation does nothing
   }
 
@@ -374,7 +374,9 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   private func onAction(_ action: Action) {
     var newState = viewState
     scopeStateOnAction(action, &newState)
-    scopeStateOnAction(action)
+    Task {
+      await scopeStateOnAction(action)
+    }
 
     let change = BindifyStateChange(oldState: viewState, newState: newState)
 
