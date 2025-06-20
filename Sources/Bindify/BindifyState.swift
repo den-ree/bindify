@@ -205,32 +205,6 @@ public struct BindifyStateChange<State: BindifyState>: Equatable, Sendable {
   public var hasChanged: Bool { oldState != newState }
 }
 
-/// The type of event that triggered a state change.
-///
-/// State changes can be triggered by:
-/// - Initial connection to the store
-/// - Updates from the store
-/// - Local actions within the view model
-public struct BindifyStateEvent<Action: BindifyAction, State: BindifyState, StoreState: BindifyStoreState> {
-  public enum Trigger: Equatable, Sendable {
-    case initial
-    case store
-    case action(Action)
-  }
-
-  let store: BindifyStore<StoreState>
-
-  public let trigger: Trigger
-  public let change: BindifyStateChange<State>
-
-  @MainActor
-  public func updateStore(_ block: @escaping (inout StoreState) -> Void) {
-    Task { @MainActor in
-      await store.update(state: block)
-    }
-  }
-}
-
 public struct BindifyStateSideEffect<State: BindifyState> {
   let change: BindifyStateChange<State>
 
