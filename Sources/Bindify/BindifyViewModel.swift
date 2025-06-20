@@ -263,7 +263,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   @MainActor
   open func scopeStateOnAction(
     _ action: Action
-  ) async {
+  ) {
     // Default implementation does nothing
   }
 
@@ -374,9 +374,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   private func onAction(_ action: Action) {
     var newState = viewState
     scopeStateOnAction(action, &newState)
-    Task { @MainActor in
-      await scopeStateOnAction(action)
-    }
+    scopeStateOnAction(action)
 
     let change = BindifyStateChange(oldState: viewState, newState: newState)
 
