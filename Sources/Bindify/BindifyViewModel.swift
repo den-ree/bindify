@@ -118,6 +118,8 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   /// Set of cancellables to manage subscriptions
   private var cancellables = Set<AnyCancellable>()
 
+  private var hasInitialState: Bool = true
+
   /// The store context used by this view model
   public let context: StoreContext
 
@@ -138,7 +140,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
         var newState = self.viewState
         self.scopeStateOnStoreChange(new, &newState)
 
-        let change = BindifyStateChange(oldState: self.viewState, newState: newState)
+        let change = BindifyStateChange(oldState: self.viewState, newState: newState, isInitial: old == nil)
 
         Task {
           await self.scopeStateOnStoreChange(new)
@@ -332,10 +334,11 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
     var newState = viewState
     block(&newState)
 
-    let change = BindifyStateChange(oldState: oldState, newState: newState)
+    let change = BindifyStateChange(oldState: oldState, newState: newState, isInitial: hasInitialState)
 
     if change.hasChanged {
       viewState = change.newState
+      hasInitialState = false
     }
 
     return .init(change: change)
@@ -376,7 +379,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
     scopeStateOnAction(action, &newState)
     scopeStateOnAction(action)
 
-    let change = BindifyStateChange(oldState: viewState, newState: newState)
+    let change = BindifyStateChange(oldState: viewState, newState: newState, isInitial: false)
 
     if change.hasChanged {
       viewState = change.newState

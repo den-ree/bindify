@@ -198,6 +198,9 @@ public struct BindifyStateChange<State: BindifyState>: Equatable, Sendable {
   /// The state after the change occurred.
   public let newState: State
 
+  /// Only true when the state has been updated first time
+  public let isInitial: Bool
+
   /// Whether the state actually changed values.
   public var hasChanged: Bool { oldState != newState }
 }
