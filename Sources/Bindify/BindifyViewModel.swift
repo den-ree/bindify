@@ -167,10 +167,11 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
     var newState = viewState
     block(&newState)
 
-    let change = BindifyStateChange(oldState: oldState, newState: newState, isInitial: false)
+    let change = BindifyStateChange(oldState: oldState, newState: newState, isInitial: hasInitialState)
 
     if change.hasChanged {
       viewState = change.newState
+      hasInitialState = false
     }
 
     return .init(change: change)
