@@ -33,7 +33,7 @@ final class DiaryListViewModel: BindifyViewModel<DiaryContext, DiaryListViewMode
   override func scopeStateOnStoreChange(
     _ storeState: DiaryStoreState
   ) async {
-    updateState { state in
+    await updateState { state in
       state.entries = storeState.entries.sorted { $0.createdAt > $1.createdAt }
       state.isAddingNew = storeState.entrySelectionMode == .addingNew
       if case let .selecting(selectedEntry) = storeState.entrySelectionMode {
@@ -46,43 +46,55 @@ final class DiaryListViewModel: BindifyViewModel<DiaryContext, DiaryListViewMode
 
   // MARK: - Actions
 
+  @MainActor
   func selectEntry(_ entry: DiaryEntry) {
-    updateStore { _, storeState in
+    updateStore { storeState in
       storeState.entrySelectionMode = .selecting(entry)
     }
   }
 
+  @MainActor
   func clearSelection() {
-    updateStore { _, storeState in
+    updateStore { storeState in
       storeState.entrySelectionMode = .no
     }
   }
 
+  @MainActor
   func startAddingNew() {
-    updateStore { _, storeState in
+    updateStore { storeState in
       storeState.entrySelectionMode = .addingNew
     }
   }
 
+  @MainActor
   func finishAddingNew() {
     updateState { state in
       state.isAddingNew = false
     }
   }
 
+  @MainActor
   func removeEntry(at index: Int) {
-    let entry = state.entry(at: index)
-    updateStore { _, storeState in
-      storeState.entries.removeAll { $0.id == entry.id }
+    Task {
+      await sideEffect { [weak self] state in
+        let entry = state.entry(at: index)
+        
+        self?.updateStore { storeState in
+          storeState.entries.removeAll { $0.id == entry.id }
+        }
+      }
     }
   }
 
+  @MainActor
   func removeEntryById(_ id: UUID) {
-    updateStore { _, storeState in
+    updateStore { storeState in
       storeState.entries.removeAll { $0.id == id }
     }
   }
 
+  @MainActor
   func refresh() {
     updateState { state in
       state.isRefreshing = true

@@ -81,63 +81,61 @@ final class DiaryEntryViewModel: BindifyViewModel<DiaryContext, DiaryEntryViewMo
     }
   }
 
+  @MainActor
   func finishEditing(save: Bool) {
     guard save else {
         updateState { state in
           state.isEditing = false
-        }.sideEffect { change in
-          guard let state = change.newValue else { return }
-
-          await updateStore {
-            storeState.entrySelectionMode = .no
+        }.sideEffect { [weak self] _ in
+          self?.updateStore {
+            $0.entrySelectionMode = .no
           }
         }
-      }
       return
     }
 
     updateState { state in
       state.savingStatus = .saving
-    }
 
-    guard !state.title.isEmpty else {
-      return
-    }
-
-    let newEntry = DiaryEntry(
-      id: .init(),
-      title: state.title,
-      content: state.content,
-      createdAt: .now
-    )
-
-    updateStore { _, storeState in
-      switch storeState.entrySelectionMode {
-      case .addingNew:
-        storeState.entries.append(newEntry)
-      case let .selecting(existingEntry):
-        let updatedEntry = existingEntry.new(title: newEntry.title, content: newEntry.content)
-        storeState.entries = storeState.entries.map { $0.id == existingEntry.id ? updatedEntry : $0 }
-      case .no:
-        break
+      guard !state.title.isEmpty else {
+        return
       }
-    }
+    }.sideEffect { [weak self] change in
+      guard let self, change.hasChanged else { return }
+      let state = change.newState
 
-    // Simulate saving delay
-    Task {
+      let newEntry = DiaryEntry(
+        id: .init(),
+        title: state.title,
+        content: state.content,
+        createdAt: .now
+      )
+
+      self.updateStore { storeState in
+        switch storeState.entrySelectionMode {
+        case .addingNew:
+          storeState.entries.append(newEntry)
+        case let .selecting(existingEntry):
+          let updatedEntry = existingEntry.new(title: newEntry.title, content: newEntry.content)
+          storeState.entries = storeState.entries.map { $0.id == existingEntry.id ? updatedEntry : $0 }
+        case .no:
+          break
+        }
+      }
       try? await Task.sleep(for: .seconds(2))
-      await MainActor.run {
-        markAsSaved()
-      }
+      markAsSaved()
     }
   }
 
+  @MainActor
   func markAsSaved() {
     updateState { state in
       state.savingStatus = .saved
       state.isEditing = false
-    }.updateStore { _, storeState in
-      storeState.entrySelectionMode = .no
+    }.sideEffect {  [weak self] change in
+      self?.updateStore { storeState in
+        storeState.entrySelectionMode = .no
+      }
     }
   }
 }
