@@ -24,7 +24,7 @@ Add the following to your `Package.swift` file:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/yourusername/Bindify.git", from: "1.0.0")
+    .package(url: "https://github.com/den-ree/Bindify", branch: "main")
 ]
 ```
 
