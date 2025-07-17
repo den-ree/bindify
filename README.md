@@ -28,30 +28,6 @@ dependencies: [
 ]
 ```
 
-## Quick Start
-
-```swift
-// Define your state
-struct AppState: BindifyStoreState {
-    var count: Int = 0
-    var isAuthenticated: Bool = false
-}
-
-// Create a store
-let store = BindifyStore(AppState())
-
-// Subscribe to changes
-let subscription = await store.subscribe { old, new in
-    print("State changed from \(old) to \(new)")
-}
-
-// Update state
-await store.update { state in
-    state.count += 1
-    state.isAuthenticated = true
-}
-```
-
 ## Usage
 
 Bindify enables a clean separation of local (view) state and global (store) state, with support for side effects. Here are the recommended patterns:
