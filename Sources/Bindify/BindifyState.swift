@@ -120,6 +120,37 @@ public protocol BindifyViewState: BindifyState, Sendable {
     init()
 }
 
+/// A protocol that defines the base requirements for all action types in the Bindify framework.
+///
+/// Actions in Bindify represent user interactions or system events that can trigger state changes.
+/// They must be:
+/// - Value types that can be compared for equality
+/// - Thread-safe for concurrent access
+///
+/// ## Overview
+///
+/// The `BindifyAction` protocol serves as the foundation for all actions in Bindify.
+/// It enforces immutability and thread safety, which are crucial for predictable state management
+/// in a unidirectional data flow architecture.
+///
+/// ## Usage
+///
+/// ```swift
+/// enum UserAction: BindifyAction {
+///     case updateName(String)
+///     case toggleActive
+///     case save
+/// }
+/// ```
+///
+/// ## Topics
+///
+/// ### Related Types
+///
+/// - ``BindifyState``
+/// - ``BindifyStateEvent``
+public protocol BindifyAction: Equatable, Sendable {}
+
 /// A structure that represents a state change event with metadata.
 ///
 /// `BindifyStateChange` tracks the lifecycle of state changes, including:
@@ -161,33 +192,26 @@ public protocol BindifyViewState: BindifyState, Sendable {
 /// - ``isInitial``
 /// - ``hasChanged``
 public struct BindifyStateChange<State: BindifyState>: Equatable, Sendable {
-    /// The type of event that triggered a state change.
-    ///
-    /// State changes can be triggered by:
-    /// - Initial connection to the store
-    /// - Updates from the store
-    /// - Local actions within the view model
-    public enum Trigger: Equatable, Sendable {
-        /// The initial connection to the store when a view model is created.
-        case storeConnection
-        /// An update propagated from the store to the view.
-        case storeUpdate
-        /// A local update triggered by an action within the view model.
-        case actionUpdate
+  /// The state before the change occurred.
+  public let oldState: State
+
+  /// The state after the change occurred.
+  public let newState: State
+
+  /// Only true when the state has been updated first time
+  public let isInitial: Bool
+
+  /// Whether the state actually changed values.
+  public var hasChanged: Bool { oldState != newState }
+}
+
+public struct BindifyStateSideEffect<State: BindifyState> {
+  let change: BindifyStateChange<State>
+
+  @MainActor
+  public func sideEffect(_ block: @escaping @MainActor (BindifyStateChange<State>) async -> Void) -> Void {
+    Task {
+      await block(change)
     }
-
-    /// The event that triggered this state change.
-    public let trigger: Trigger
-
-    /// The state before the change occurred.
-    public let oldState: State
-
-    /// The state after the change occurred.
-    public let newState: State
-
-    /// Whether this is the initial state (first load).
-    public var isInitial: Bool { trigger == .storeConnection }
-
-    /// Whether the state actually changed values.
-    var hasChanged: Bool { oldState != newState }
+  }
 }

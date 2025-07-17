@@ -13,7 +13,6 @@
 /// - Be observable objects for SwiftUI integration
 /// - Define their store context type
 /// - Define their view state type
-/// - Define their action type
 ///
 /// ## Overview
 ///
@@ -25,51 +24,41 @@ public protocol BindifiableViewModel: ObservableObject {
 
   /// The type of state used by this view model.
   associatedtype ViewState: BindifyViewState
-
-  /// The type of actions that can be processed by this view model.
-  associatedtype Action: Equatable
 }
 
 /// A base view model class that integrates with a store and manages state.
 ///
 /// `BindifyViewModel` provides core functionality for:
 /// - Unidirectional data flow from store state to view state
-/// - Store state updates through actions
 /// - Reactive updates when store state changes
 /// - Lifecycle management of subscriptions
+/// - Fluent state update API with chaining
 ///
 /// ## Overview
 ///
 /// This class implements the core state management logic for views in the Bindify framework.
-/// It handles the bidirectional flow of data between the store and the view, ensuring that:
+/// It handles the flow of data between the store and the view, ensuring that:
 /// - Store updates are properly reflected in the view state
-/// - Actions can update both local state and store state
-/// - State changes are properly tracked and lifecycle hooks are called
+/// - State changes are properly tracked and managed
+/// - Clean separation between local and global state
 ///
 /// ## Usage
 ///
 /// ```swift
-/// final class UserProfileViewModel: BindifyViewModel<AppContext, UserProfileViewState, UserProfileAction> {
-///     override func scopeStateOnAction(
-///         _ action: UserProfileAction,
-///         _ newState: inout UserProfileViewState
-///     ) -> ((inout AppContext.StoreState) -> Void)? {
-///         switch action {
-///         case .updateName(let name):
-///             newState.name = name
-///             return nil
-///         case .save:
-///             return { state in
-///                 state.userProfile.name = newState.name
-///             }
+/// final class UserProfileViewModel: BindifyViewModel<AppContext, UserProfileViewState> {
+///     override func scopeStateOnStoreChange(_ storeState: AppContext.StoreState) async {
+///         updateState { state in
+///             state.name = storeState.userProfile.name
+///             state.isSavingDisabled = storeState.userProfile.name.isEmpty
 ///         }
 ///     }
-///
-///     override func scopeStateOnStoreChange(
-///         _ storeState: AppContext.StoreState,
-///         _ newState: inout UserProfileViewState
-///     ) {
-///         newState.name = storeState.userProfile.name
+///     
+///     func updateName(_ name: String) {
+///         updateState { state in
+///             state.name = name
+///         }.updateStore { change, storeState in
+///             storeState.userProfile.name = change.newState.name
+///         }
 ///     }
 /// }
 /// ```
@@ -80,26 +69,26 @@ public protocol BindifiableViewModel: ObservableObject {
 ///
 /// - ``StoreContext``
 /// - ``ViewState``
-/// - ``Action``
 /// - ``context``
 /// - ``viewState``
 ///
 /// ### State Management
 ///
-/// - ``onAction(_:)``
-/// - ``scopeStateOnAction(_:_:)``
-/// - ``scopeStateOnStoreChange(_:_:)``
-/// - ``onStateWillChange(_:)``
-/// - ``onStateDidChange(_:)``
+/// - ``scopeStateOnStoreChange(_:)``
+/// - ``updateState(_:)``
+/// - ``updateStore(_:)``
 ///
 /// ### Related Types
 ///
 /// - ``BindifyContext``
 /// - ``BindifyViewState``
 /// - ``BindifyStateChange``
-open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyViewState, Action: Equatable>: BindifiableViewModel {
+/// - ``BindifyStateSideEffect``
+open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyViewState>: BindifiableViewModel {
   /// Set of cancellables to manage subscriptions
   private var cancellables = Set<AnyCancellable>()
+
+  private var hasInitialState: Bool = true
 
   /// The store context used by this view model
   public let context: StoreContext
@@ -115,13 +104,12 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
 
     let store = context.store
 
-    Task { @MainActor in
+    Task {
       await store.subscribe { [weak self] old, new in
         guard let self = self else { return }
-        var newState = self.viewState
-        self.scopeStateOnStoreChange(new, &newState)
-        Task { @MainActor in
-          self.updateState(newState, trigger: old == nil ? .storeConnection : .storeUpdate)
+        
+        Task {
+          await self.scopeStateOnStoreChange(new)
         }
       }.store(in: &cancellables)
     }
@@ -132,80 +120,6 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
     cancellables.removeAll()
   }
 
-  /// The main entry point for handling actions
-  ///
-  /// This method processes actions and updates state accordingly.
-  /// It first updates the view state based on the action, then optionally updates the store.
-  ///
-  /// ## Overview
-  ///
-  /// The action handling process follows these steps:
-  /// 1. Update the view state based on the action
-  /// 2. If the action requires store updates, update the store state
-  /// 3. Notify observers of state changes
-  ///
-  /// ## Usage
-  ///
-  /// ```swift
-  /// viewModel.onAction(.updateName("John"))
-  /// ```
-  ///
-  /// - Parameter action: The action to process
-  @MainActor
-  open func onAction(_ action: Action) {
-    var newState = viewState
-    let storeUpdate = scopeStateOnAction(action, &newState)
-    updateState(newState, trigger: .actionUpdate)
-
-    if let update = storeUpdate {
-      Task {
-        await context.store.update(state: update)
-      }
-    }
-  }
-
-  /// Scopes the action into state changes
-  ///
-  /// This method handles both local view state changes and store state changes.
-  /// It should be pure and deterministic - the same action and state should always produce the same changes.
-  ///
-  /// ## Overview
-  ///
-  /// This method is called for every action and should:
-  /// - Update the view state based on the action
-  /// - Return a store update closure if the action requires store changes
-  ///
-  /// ## Usage
-  ///
-  /// ```swift
-  /// override func scopeStateOnAction(
-  ///     _ action: UserProfileAction,
-  ///     _ newState: inout UserProfileViewState
-  /// ) -> ((inout AppContext.StoreState) -> Void)? {
-  ///     switch action {
-  ///     case .updateName(let name):
-  ///         newState.name = name
-  ///         return nil
-  ///     case .save:
-  ///         return { state in
-  ///             state.userProfile.name = newState.name
-  ///         }
-  ///     }
-  /// }
-  /// ```
-  ///
-  /// - Parameters:
-  ///   - action: The action being processed
-  ///   - newState: The current view state to be modified
-  /// - Returns: Optional closure to update the store state
-  open func scopeStateOnAction(
-    _ action: Action,
-    _ newState: inout ViewState
-  ) -> ((inout StoreContext.StoreState) -> Void)? {
-    // Default implementation does nothing
-    return nil
-  }
-
   /// Scopes the store state into the local view state
   ///
   /// This is the core mapping function that defines how the view state is derived from the store state.
@@ -214,53 +128,59 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   /// ## Overview
   ///
   /// This method is called whenever the store state changes and should:
-  /// - Map relevant store state to view state
+  /// - Map relevant store state to view state using `updateState`
   /// - Handle any derived state calculations
   /// - Maintain UI-specific state
   ///
   /// ## Usage
   ///
   /// ```swift
-  /// override func scopeStateOnStoreChange(
-  ///     _ storeState: AppContext.StoreState,
-  ///     _ newState: inout UserProfileViewState
-  /// ) {
-  ///     newState.name = storeState.userProfile.name
-  ///     newState.isSavingDisabled = storeState.userProfile.name.isEmpty
+  /// override func scopeStateOnStoreChange(_ storeState: AppContext.StoreState) async {
+  ///     updateState { state in
+  ///         state.name = storeState.userProfile.name
+  ///         state.isSavingDisabled = storeState.userProfile.name.isEmpty
+  ///     }
   /// }
   /// ```
   ///
-  /// - Parameters:
-  ///   - storeState: The current store state
-  ///   - newState: The view state to be modified
+  /// - Parameter storeState: The current store state
   open func scopeStateOnStoreChange(
-    _ storeState: StoreContext.StoreState,
-    _ newState: inout ViewState
-  ) {
-    fatalError(#function + " must be overridden")
+    _ storeState: StoreContext.StoreState
+  ) async {
+    // Default implementation does nothing
   }
 
-  /// Called just before the view state changes
+  /// Updates the global store's state using a mutation block
   ///
-  /// This method is called before any state update occurs, allowing for:
-  /// - Validation of state changes
-  /// - Preparation for state updates
-  /// - Logging or analytics
-  ///
-  /// - Parameter change: Contains the old state, new state, and trigger type
+  /// - Parameter block: A closure that modifies the store's state
   @MainActor
-  open func onStateWillChange(_ change: BindifyStateChange<ViewState>) {}
+  public func updateStore(_ block: @escaping (inout StoreContext.StoreState) -> Void) {
+    Task { @MainActor in
+      await context.store.update(state: block)
+    }
+  }
 
-  /// Called after the view state has changed
-  ///
-  /// This method is called after a state update has been applied, allowing for:
-  /// - Side effects based on state changes
-  /// - Navigation updates
-  /// - Analytics tracking
-  ///
-  /// - Parameter change: Contains the old state, new state, and trigger type
   @MainActor
-  open func onStateDidChange(_ change: BindifyStateChange<ViewState>) async {}
+  @discardableResult
+  public func updateState(_ block: @escaping @MainActor (inout ViewState) -> Void) -> BindifyStateSideEffect<ViewState> {
+    let oldState = viewState
+    var newState = viewState
+    block(&newState)
+
+    let change = BindifyStateChange(oldState: oldState, newState: newState, isInitial: hasInitialState)
+
+    if change.hasChanged {
+      viewState = change.newState
+      hasInitialState = false
+    }
+
+    return .init(change: change)
+  }
+
+  @MainActor
+  public func sideEffect(_ block: @escaping @MainActor (ViewState) async -> Void) async -> Void {
+    await block(viewState)
+  }
 
   /// Subscribes to a cancellable and stores it for lifecycle management
   ///
@@ -272,29 +192,3 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
     cancelable.store(in: &cancellables)
   }
 }
-
-private extension BindifyViewModel {
-  /// Internal method to update the view state with lifecycle hooks
-  ///
-  /// This method handles the state update process including:
-  /// - Change detection
-  /// - Lifecycle notifications (willChange/didChange)
-  ///
-  /// - Parameters:
-  ///   - block: A closure that modifies the view state
-  ///   - trigger: The source that triggered this state update
-  @MainActor func updateState(_ newState: ViewState, trigger: BindifyStateChange<ViewState>.Trigger) {
-    let change = BindifyStateChange(trigger: trigger, oldState: viewState, newState: newState)
-
-    guard change.hasChanged || change.isInitial else { return }
-
-    onStateWillChange(change)
-
-    viewState = change.newState
-
-    Task {
-      await onStateDidChange(change)
-    }
-  }
-}
-
