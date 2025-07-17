@@ -21,9 +21,9 @@ struct DiaryListView: BindifyView {
               get: { state.selectedEntryId == entry.id },
               set: { isActive in
                 if isActive {
-                  onAction(.selectEntry(entry))
+                  viewModel.selectEntry(entry)
                 } else {
-                  onAction(.clearSelection)
+                  viewModel.clearSelection()
                 }
               }
             )
@@ -47,7 +47,7 @@ struct DiaryListView: BindifyView {
         }
         .onDelete { indexSet in
           for index in indexSet {
-            onAction(.removeEntry(at: index))
+            viewModel.removeEntry(at: index)
           }
         }
       }
@@ -55,10 +55,11 @@ struct DiaryListView: BindifyView {
       .toolbar {
         ToolbarItem(placement: .navigationBarTrailing) {
           NavigationLink(
-            isActive: bindTo(\.isAddingNew, action: { newValue in
-              guard newValue else { return nil }
-              return .startAddingNew
-            })
+            isActive: bindTo(\.isAddingNew) { newValue in
+              if newValue {
+                viewModel.startAddingNew()
+              }
+            }
           ) {
             DiaryEntryView(viewModel.context)
           } label: {

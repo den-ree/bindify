@@ -26,22 +26,22 @@ struct DiaryEntryView: BindifyView {
       ZStack {
         Form {
           Section(header: Text("Title")) {
-            TextField("Enter title", text: bindTo(\.title, action: { .updateTitle($0) }))
+            TextField("Enter title", text: bindTo(\.title) { viewModel.updateTitle($0) })
             .focused($focusedField, equals: .title)
             .onChange(of: focusedField) { oldValue, newValue in
               if newValue == .title {
-                onAction(.startEditing)
+                viewModel.startEditing()
               }
             }
           }
 
           Section(header: Text("Content")) {
-            TextEditor(text: bindTo(\.content, action: { .updateContent($0) }))
+            TextEditor(text: bindTo(\.content) { viewModel.updateContent($0) })
             .frame(minHeight: 200)
             .focused($focusedField, equals: .content)
             .onChange(of: focusedField) { oldValue, newValue in
               if newValue == .content {
-                onAction(.startEditing)
+                viewModel.startEditing()
               }
             }
           }
@@ -52,14 +52,14 @@ struct DiaryEntryView: BindifyView {
             ToolbarItem(placement: .navigationBarLeading) {
               Button("Cancel") {
                 focusedField = nil
-                onAction(.finishEditing(save: false))
+                viewModel.finishEditing(save: false)
               }
             }
 
             ToolbarItem(placement: .navigationBarTrailing) {
               Button("Save") {
                 focusedField = nil
-                onAction(.finishEditing(save: true))
+                viewModel.finishEditing(save: true)
               }
               .disabled(state.isSavingDisabled)
             }
