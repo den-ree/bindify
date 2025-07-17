@@ -123,7 +123,7 @@ extension BindifyStore {
   /// ```
   ///
   /// - Parameter block: A closure that modifies the current state. The state is passed as an `inout` parameter.
-  func update(state block: (inout State) -> Void) {
+  public func update(state block: (inout State) -> Void) {
     let oldState = state
     block(&state)
 
