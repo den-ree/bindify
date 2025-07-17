@@ -58,7 +58,7 @@ public actor BindifyStore<State: BindifyStoreState> {
   ///
   /// This property is actor-isolated, ensuring thread-safe access to the state.
   /// All state modifications should be performed through the ``update(state:)`` method.
-  private(set) var state: State
+  public private(set) var state: State
 
   /// Subject that broadcasts state changes to subscribers.
   ///
