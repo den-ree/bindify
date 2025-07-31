@@ -209,9 +209,7 @@ public struct BindifyStateSideEffect<State: BindifyState> {
   let change: BindifyStateChange<State>
 
   @MainActor
-  public func sideEffect(_ block: @escaping @MainActor (BindifyStateChange<State>) async -> Void) -> Void {
-    Task {
-      await block(change)
-    }
+  public func sideEffect(_ block: @escaping @MainActor (BindifyStateChange<State>) async -> Void) async -> Void {
+    await block(change)
   }
 }

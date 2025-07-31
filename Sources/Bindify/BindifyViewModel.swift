@@ -178,8 +178,8 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   }
 
   @MainActor
-  public func sideEffect(_ block: @escaping @MainActor (ViewState) async -> Void) async -> Void {
-    await block(viewState)
+  public func scopeState<T>(_ scopeBlock: @escaping (ViewState) -> T, block: @escaping (T) async -> Void) async -> Void {
+    await block(scopeBlock(viewState))
   }
 
   /// Subscribes to a cancellable and stores it for lifecycle management
