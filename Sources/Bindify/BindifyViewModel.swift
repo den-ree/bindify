@@ -178,7 +178,7 @@ open class BindifyViewModel<StoreContext: BindifyContext, ViewState: BindifyView
   }
 
   @MainActor
-  public func scopeState<T>(_ scopeBlock: @escaping (ViewState) -> T, block: @escaping (T) async -> Void) async -> Void {
+  public func scopeState<T>(_ scopeBlock: @escaping (ViewState) -> T, _ block: @escaping (T) async -> Void) async -> Void {
     await block(scopeBlock(viewState))
   }
 
